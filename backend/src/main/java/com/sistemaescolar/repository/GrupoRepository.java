@@ -1,5 +1,6 @@
 package com.sistemaescolar.repository;
 
+import com.sistemaescolar.model.DiaSemana;
 import com.sistemaescolar.model.Grupo;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
@@ -19,6 +20,6 @@ public interface GrupoRepository extends MongoRepository<Grupo, String> {
     List<Grupo> findByDocenteIdAndPeriodoAndHorariosDiaIgnoreCaseAndActivoTrue(
             String docenteId,
             String periodo,
-            String dia
+            DiaSemana dia
     );
 }

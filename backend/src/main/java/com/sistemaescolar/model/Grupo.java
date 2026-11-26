@@ -33,5 +33,6 @@ public class Grupo {
 
     private List<Horario> horarios;
 
+    @Builder.Default
     private Boolean activo = true;
 }

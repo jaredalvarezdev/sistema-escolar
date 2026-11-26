@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
  * Bloque de horario embebido dentro de un grupo.
  */
 public class Horario {
-    private String dia;
+    private DiaSemana dia;
     private String horaInicio;
     private String horaFin;
     private String aula;

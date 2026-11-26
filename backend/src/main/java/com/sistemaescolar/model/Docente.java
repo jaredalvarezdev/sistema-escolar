@@ -20,16 +20,18 @@ public class Docente {
     @Id
     private String id;
 
+    @Indexed(unique = true)
     private String numeroEmpleado;
     private String nombre;
     private String apellidoPaterno;
     private String apellidoMaterno;
 
     @Indexed(unique = true)
-    @Email(message = "El formato del correo no es válido")
     private String email;
 
     private String telefono;
     private String especialidad;
-    private Boolean activo;
+
+    @Builder.Default
+    private Boolean activo = true;
 }
