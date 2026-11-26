@@ -16,24 +16,34 @@
 ## 2. Convenciones
 
 - Los nombres de las colecciones se escriben en plural y minúsculas.
-- Los nombres de los campos utilizan camelCase.
-- Cada documento cuenta con un identificador `_id` de tipo ObjectId.
-- Las relaciones entre colecciones utilizan referencias ObjectId.
-- Las fechas se almacenan como BSON Date.
+- Los nombres de los campos utilizan camelCase y no contienen acentos.
+- Cada modelo Java utiliza un campo `id` de tipo String como identificador.
+- En MongoDB, el identificador se almacena en el campo `_id`.
+- Las referencias entre colecciones se almacenan como String y terminan en Id.
+- Los valores de los enums se escriben en mayúsculas.
+- Las fechas utilizan LocalDate, LocalDateTime o LocalTime, según corresponda.
+- Los campos únicos llevan la anotación `@Indexed(unique = true)`.
+- Los modelos utilizan `@Document(collection = "...")` con el nombre exacto de la colección.
 - Las contraseñas se almacenan mediante hash BCrypt.
-- Los modelos de Spring Boot deben respetar los nombres de los campos definidos en este documento.
+- Las bajas son lógicas mediante `activo = false` en las colecciones que contienen dicho campo.
+- Los modelos deben respetar los campos definidos en este documento.
 
 ### Equivalencia de tipos
 
-| MongoDB  | Java                                  |
-| -------- | ------------------------------------- |
-| ObjectId | ObjectId o String con conversión BSON |
-| String   | String                                |
-| Int32    | Integer                               |
-| Double   | Double                                |
-| Date     | Instant                               |
-| Document | Clase Java                            |
-| Boolean  | Boolean                               |
+| MongoDB                          | Java                                          |
+| -------------------------------- | --------------------------------------------- |
+| ObjectId                         | String mediante @Id                           |
+| String                           | String                                        |
+| Int32                            | Integer                                       |
+| Double                           | Double                                        |
+| Boolean                          | Boolean                                       |
+| Date                             | LocalDate o LocalDateTime mediante conversión |
+| Representación según convertidor | LocalTime                                     |
+| String                           | Enum                                          |
+| Document                         | Clase Java                                    |
+| Array                            | List                                          |
+
+La representación BSON de los tipos de fecha y hora deberá coincidir con la configuración de conversión utilizada por Spring Data MongoDB.
 
 ## 3. Colecciones
 
@@ -41,31 +51,55 @@
 
 Responsable: Kevin.
 
-Almacena las credenciales y roles de acceso al sistema.
+Almacena las cuentas de acceso al sistema y sus respectivos roles.
 
-| Campo    | Tipo BSON | Obligatorio | Restricción         |
-| -------- | --------- | ----------- | ------------------- |
-| \_id     | ObjectId  | Sí          | Identificador único |
-| email    | String    | Sí          | Único y válido      |
-| password | String    | Sí          | Hash BCrypt         |
-| rol      | String    | Sí          | Rol permitido       |
+| Campo Java    | Tipo Java     | Obligatorio | Restricción                                 |
+| ------------- | ------------- | ----------- | ------------------------------------------- |
+| id            | String        | Sí          | Identificador generado por MongoDB          |
+| nombre        | String        | Sí          | Nombre del usuario                          |
+| email         | String        | Sí          | Único y con formato válido                  |
+| password      | String        | Sí          | Hash BCrypt                                 |
+| rol           | Rol           | Sí          | ADMIN, PROFESOR o ALUMNO                    |
+| alumnoId      | String        | Condicional | Referencia a alumnos si el rol es ALUMNO    |
+| docenteId     | String        | Condicional | Referencia a docentes si el rol es PROFESOR |
+| activo        | Boolean       | Sí          | true por defecto                            |
+| fechaRegistro | LocalDateTime | Sí          | Fecha y hora de creación                    |
 
-Roles permitidos:
+#### Roles permitidos
 
-- ADMINISTRADOR
+- ADMIN
 - PROFESOR
 - ALUMNO
 
-Ejemplo:
+#### Ejemplo
 
 ```json
 {
-  "_id": { "$oid": "670000000000000000000001" },
-  "email": "alumno01@example.com",
+  "_id": { "$oid": "010000000000000000000002" },
+  "nombre": "Juan Garcia Lopez",
+  "email": "alumno1@example.com",
   "password": "<HASH_BCRYPT>",
-  "rol": "ALUMNO"
+  "rol": "ALUMNO",
+  "alumnoId": "020000000000000000000001",
+  "docenteId": null,
+  "activo": true,
+  "fechaRegistro": {
+    "$date": "2026-09-01T14:00:00Z"
+  }
 }
 ```
+
+#### Reglas de negocio
+
+- El correo electrónico debe ser único y válido.
+- La contraseña debe almacenarse mediante BCrypt.
+- La contraseña nunca debe incluirse en las respuestas de la API.
+- El rol debe corresponder a uno de los valores permitidos.
+- Si el rol es ALUMNO, alumnoId debe corresponder a un alumno existente.
+- Si el rol es PROFESOR, docenteId debe corresponder a un docente existente.
+- Los administradores no requieren alumnoId ni docenteId.
+- Las cuentas se desactivan mediante activo = false.
+- La fecha de registro se asigna al crear la cuenta.
 
 ### 3.2. alumnos
 
@@ -73,69 +107,93 @@ Responsable: Yayo.
 
 Almacena la información personal y académica de los estudiantes.
 
-| Campo     | Tipo BSON | Obligatorio | Restricción           |
-| --------- | --------- | ----------- | --------------------- |
-| \_id      | ObjectId  | Sí          | Identificador único   |
-| usuarioId | ObjectId  | Sí          | Referencia a usuarios |
-| matricula | String    | Sí          | Única                 |
-| nombre    | String    | Sí          | No vacío              |
-| apellidos | String    | Sí          | No vacío              |
-| email     | String    | Sí          | Correo válido         |
-| semestre  | Int32     | Sí          | Mayor a 0             |
+| Campo Java      | Tipo Java | Obligatorio | Restricción                        |
+| --------------- | --------- | ----------- | ---------------------------------- |
+| id              | String    | Sí          | Identificador generado por MongoDB |
+| matricula       | String    | Sí          | Única                              |
+| nombre          | String    | Sí          | No vacío                           |
+| apellidoPaterno | String    | Sí          | No vacío                           |
+| apellidoMaterno | String    | No          | Opcional                           |
+| email           | String    | Sí          | Único y válido                     |
+| telefono        | String    | No          | 10 dígitos                         |
+| fechaNacimiento | LocalDate | Sí          | Fecha anterior a la actual         |
+| carrera         | String    | Sí          | No vacío                           |
+| semestre        | Integer   | Sí          | Entre 1 y 12                       |
+| activo          | Boolean   | Sí          | true por defecto                   |
 
-Ejemplo:
+#### Ejemplo
 
 ```json
 {
-  "_id": { "$oid": "670000000000000000000101" },
-  "usuarioId": { "$oid": "670000000000000000000001" },
-  "matricula": "20260001",
+  "_id": { "$oid": "020000000000000000000001" },
+  "matricula": "A2026001",
   "nombre": "Juan",
-  "apellidos": "Perez Lopez",
-  "email": "alumno01@example.com",
-  "semestre": 3
+  "apellidoPaterno": "Garcia",
+  "apellidoMaterno": "Lopez",
+  "email": "alumno1@example.com",
+  "telefono": "4770000001",
+  "fechaNacimiento": {
+    "$date": "2005-03-15T00:00:00Z"
+  },
+  "carrera": "Tecnologias de la Informacion",
+  "semestre": 3,
+  "activo": true
 }
 ```
 
-Reglas de negocio:
+#### Reglas de negocio
 
 - No permitir matrículas duplicadas.
+- No permitir correos electrónicos duplicados.
 - Validar el formato del correo electrónico.
-- El usuario relacionado debe tener el rol ALUMNO.
-- El alumno únicamente puede consultar su propia información.
-- El correo debe coincidir con el de su usuario relacionado.
+- El teléfono debe contener 10 dígitos cuando se proporcione.
+- La fecha de nacimiento debe estar en el pasado.
+- La carrera es obligatoria.
+- El semestre debe estar entre 1 y 12.
+- La baja del alumno es lógica mediante activo = false.
+- El alumno solamente puede consultar su propia información.
+- La relación con usuarios se establece mediante usuarios.alumnoId.
 
 ### 3.3. materias
 
 Responsable: Miguel Aguirre.
 
-Almacena las asignaturas del sistema escolar.
+Almacena el catálogo de asignaturas del sistema escolar.
 
-| Campo    | Tipo BSON | Obligatorio | Restricción         |
-| -------- | --------- | ----------- | ------------------- |
-| \_id     | ObjectId  | Sí          | Identificador único |
-| clave    | String    | Sí          | Única               |
-| nombre   | String    | Sí          | No vacío            |
-| creditos | Int32     | Sí          | Mayor a 0           |
-| semestre | Int32     | Sí          | Mayor a 0           |
+| Campo Java  | Tipo Java | Obligatorio | Restricción                        |
+| ----------- | --------- | ----------- | ---------------------------------- |
+| id          | String    | Sí          | Identificador generado por MongoDB |
+| clave       | String    | Sí          | Única                              |
+| nombre      | String    | Sí          | No vacío                           |
+| descripcion | String    | No          | Opcional                           |
+| creditos    | Integer   | Sí          | Entre 1 y 10                       |
+| semestre    | Integer   | Sí          | Entre 1 y 12                       |
+| horasSemana | Integer   | Sí          | Entre 1 y 20                       |
+| activo      | Boolean   | Sí          | true por defecto                   |
 
-Ejemplo:
+#### Ejemplo
 
 ```json
 {
-  "_id": { "$oid": "670000000000000000000201" },
-  "clave": "MAT001",
+  "_id": { "$oid": "030000000000000000000001" },
+  "clave": "MAT101",
   "nombre": "Bases de Datos",
+  "descripcion": "Fundamentos y administracion de bases de datos",
   "creditos": 8,
-  "semestre": 3
+  "semestre": 3,
+  "horasSemana": 5,
+  "activo": true
 }
 ```
 
-Reglas de negocio:
+#### Reglas de negocio
 
 - No permitir claves duplicadas.
-- Los créditos deben ser mayores a cero.
-- Solo el administrador puede registrar, actualizar o eliminar materias.
+- Los créditos deben estar entre 1 y 10.
+- El semestre debe estar entre 1 y 12.
+- Las horas semanales deben estar entre 1 y 20.
+- Solo el administrador puede registrar, actualizar o dar de baja materias.
+- Las bajas se realizan mediante activo = false.
 
 ### 3.4. docentes
 
@@ -143,119 +201,165 @@ Responsable: Fermín.
 
 Almacena la información de los profesores.
 
-| Campo          | Tipo BSON | Obligatorio | Restricción           |
-| -------------- | --------- | ----------- | --------------------- |
-| \_id           | ObjectId  | Sí          | Identificador único   |
-| usuarioId      | ObjectId  | Sí          | Referencia a usuarios |
-| numeroEmpleado | String    | Sí          | Único                 |
-| nombre         | String    | Sí          | No vacío              |
-| email          | String    | Sí          | Correo válido         |
-| especialidad   | String    | Sí          | No vacío              |
+| Campo Java      | Tipo Java | Obligatorio | Restricción                        |
+| --------------- | --------- | ----------- | ---------------------------------- |
+| id              | String    | Sí          | Identificador generado por MongoDB |
+| numeroEmpleado  | String    | Sí          | Único                              |
+| nombre          | String    | Sí          | No vacío                           |
+| apellidoPaterno | String    | Sí          | No vacío                           |
+| apellidoMaterno | String    | No          | Opcional                           |
+| email           | String    | Sí          | Único y válido                     |
+| telefono        | String    | No          | 10 dígitos                         |
+| especialidad    | String    | Sí          | No vacío                           |
+| activo          | Boolean   | Sí          | true por defecto                   |
 
-Ejemplo:
+#### Ejemplo
 
 ```json
 {
-  "_id": { "$oid": "670000000000000000000301" },
-  "usuarioId": { "$oid": "670000000000000000000021" },
-  "numeroEmpleado": "DOC001",
-  "nombre": "Carlos Ramirez",
-  "email": "docente01@example.com",
-  "especialidad": "Tecnologias de la Informacion"
+  "_id": { "$oid": "040000000000000000000001" },
+  "numeroEmpleado": "D0001",
+  "nombre": "Carlos",
+  "apellidoPaterno": "Ramirez",
+  "apellidoMaterno": "Torres",
+  "email": "docente1@example.com",
+  "telefono": "4771000001",
+  "especialidad": "Bases de Datos",
+  "activo": true
 }
 ```
 
-Reglas de negocio:
+#### Reglas de negocio
 
 - No permitir números de empleado duplicados.
-- Validar el correo electrónico.
-- El usuario relacionado debe tener el rol PROFESOR.
-- El correo debe coincidir con el de su usuario relacionado.
+- No permitir correos electrónicos duplicados.
+- Validar el formato del correo electrónico.
+- El teléfono debe contener 10 dígitos cuando se proporcione.
+- La especialidad es obligatoria.
+- Las bajas se realizan mediante activo = false.
+- La relación con usuarios se establece mediante usuarios.docenteId.
 
 ### 3.5. grupos
 
 Responsable: Fermín.
 
-Almacena los grupos, docentes, materias y horarios.
+Almacena los grupos académicos, materias, docentes, periodos y horarios.
 
-| Campo     | Tipo BSON | Obligatorio | Restricción           |
-| --------- | --------- | ----------- | --------------------- |
-| \_id      | ObjectId  | Sí          | Identificador único   |
-| materiaId | ObjectId  | Sí          | Referencia a materias |
-| docenteId | ObjectId  | Sí          | Referencia a docentes |
-| periodo   | String    | Sí          | Periodo escolar       |
-| cupo      | Int32     | Sí          | Mayor a 0             |
-| horario   | Document  | Sí          | Horario del grupo     |
+| Campo Java | Tipo Java       | Obligatorio | Restricción                        |
+| ---------- | --------------- | ----------- | ---------------------------------- |
+| id         | String          | Sí          | Identificador generado por MongoDB |
+| clave      | String          | Sí          | Única                              |
+| materiaId  | String          | Sí          | Referencia a materias              |
+| docenteId  | String          | Sí          | Referencia a docentes              |
+| periodo    | String          | Sí          | Periodo escolar                    |
+| cupoMaximo | Integer         | Sí          | Entre 1 y 50                       |
+| horarios   | List de Horario | Sí          | Al menos un horario                |
+| activo     | Boolean         | Sí          | true por defecto                   |
 
-#### Documento embebido horario
+#### Documento embebido horarios
 
-| Campo      | Tipo BSON | Obligatorio | Restricción      |
-| ---------- | --------- | ----------- | ---------------- |
-| dia        | String    | Sí          | Día de la semana |
-| horaInicio | String    | Sí          | Formato HH:mm    |
-| horaFin    | String    | Sí          | Formato HH:mm    |
-| aula       | String    | Sí          | No vacío         |
+| Campo Java | Tipo Java | Obligatorio | Restricción          |
+| ---------- | --------- | ----------- | -------------------- |
+| dia        | DiaSemana | Sí          | LUNES a SABADO       |
+| horaInicio | LocalTime | Sí          | Formato HH:mm        |
+| horaFin    | LocalTime | Sí          | Mayor que horaInicio |
+| aula       | String    | Sí          | No vacío             |
 
-Ejemplo:
+#### Días permitidos
+
+- LUNES
+- MARTES
+- MIERCOLES
+- JUEVES
+- VIERNES
+- SABADO
+
+#### Ejemplo
+
+Representación lógica del grupo:
 
 ```json
 {
-  "_id": { "$oid": "670000000000000000000401" },
-  "materiaId": { "$oid": "670000000000000000000201" },
-  "docenteId": { "$oid": "670000000000000000000301" },
-  "periodo": "2026-3",
-  "cupo": 30,
-  "horario": {
-    "dia": "LUNES",
-    "horaInicio": "08:00",
-    "horaFin": "10:00",
-    "aula": "A101"
-  }
+  "_id": { "$oid": "050000000000000000000001" },
+  "clave": "MAT101-A",
+  "materiaId": "030000000000000000000001",
+  "docenteId": "040000000000000000000001",
+  "periodo": "2026-2",
+  "cupoMaximo": 30,
+  "horarios": [
+    {
+      "dia": "LUNES",
+      "horaInicio": "08:00",
+      "horaFin": "10:00",
+      "aula": "B-204"
+    },
+    {
+      "dia": "MIERCOLES",
+      "horaInicio": "08:00",
+      "horaFin": "10:00",
+      "aula": "B-204"
+    }
+  ],
+  "activo": true
 }
 ```
 
-Reglas de negocio:
+#### Reglas de negocio
 
+- La clave del grupo debe ser única.
 - La materia debe existir.
 - El docente debe existir.
-- El cupo debe ser mayor a cero.
+- El cupo máximo debe estar entre 1 y 50.
+- Debe existir al menos un horario.
 - La hora de inicio debe ser anterior a la hora de fin.
 - No permitir horarios simultáneos para el mismo docente.
 - No permitir horarios simultáneos en la misma aula.
+- Los horarios se almacenan dentro del grupo.
+- No existe una colección independiente de horarios.
+- Las bajas se realizan mediante activo = false.
 
 ### 3.6. inscripciones
 
 Responsable: Erik.
 
-Relaciona a los alumnos con los grupos.
+Relaciona a los alumnos con los grupos académicos.
 
-| Campo    | Tipo BSON | Obligatorio | Restricción          |
-| -------- | --------- | ----------- | -------------------- |
-| \_id     | ObjectId  | Sí          | Identificador único  |
-| alumnoId | ObjectId  | Sí          | Referencia a alumnos |
-| grupoId  | ObjectId  | Sí          | Referencia a grupos  |
-| fecha    | Date      | Sí          | Fecha de inscripción |
-| estado   | String    | Sí          | ACTIVA o BAJA        |
+| Campo Java       | Tipo Java         | Obligatorio | Restricción                        |
+| ---------------- | ----------------- | ----------- | ---------------------------------- |
+| id               | String            | Sí          | Identificador generado por MongoDB |
+| alumnoId         | String            | Sí          | Referencia a alumnos               |
+| grupoId          | String            | Sí          | Referencia a grupos                |
+| fechaInscripcion | LocalDate         | Sí          | Fecha de inscripción               |
+| estado           | EstadoInscripcion | Sí          | INSCRITO o BAJA                    |
 
-Ejemplo:
+#### Estados permitidos
+
+- INSCRITO
+- BAJA
+
+#### Ejemplo
 
 ```json
 {
-  "_id": { "$oid": "670000000000000000000501" },
-  "alumnoId": { "$oid": "670000000000000000000101" },
-  "grupoId": { "$oid": "670000000000000000000401" },
-  "fecha": { "$date": "2026-09-01T00:00:00Z" },
-  "estado": "ACTIVA"
+  "_id": { "$oid": "060000000000000000000001" },
+  "alumnoId": "020000000000000000000001",
+  "grupoId": "050000000000000000000001",
+  "fechaInscripcion": {
+    "$date": "2026-09-01T00:00:00Z"
+  },
+  "estado": "INSCRITO"
 }
 ```
 
-Reglas de negocio:
+#### Reglas de negocio
 
 - El alumno debe existir.
 - El grupo debe existir.
-- No permitir inscripciones duplicadas.
+- No permitir inscripciones duplicadas para el mismo alumno y grupo.
 - No superar el cupo máximo del grupo.
 - Las inscripciones con estado BAJA no ocupan cupo.
+- La fecha de inscripción se asigna al crear el registro.
+- La baja de una inscripción se realiza mediante estado = BAJA.
 
 ### 3.7. asistencias
 
@@ -263,38 +367,46 @@ Responsable: Erik.
 
 Almacena los registros de asistencia de los alumnos.
 
-| Campo    | Tipo BSON | Obligatorio | Restricción          |
-| -------- | --------- | ----------- | -------------------- |
-| \_id     | ObjectId  | Sí          | Identificador único  |
-| alumnoId | ObjectId  | Sí          | Referencia a alumnos |
-| grupoId  | ObjectId  | Sí          | Referencia a grupos  |
-| fecha    | Date      | Sí          | Fecha de asistencia  |
-| estado   | String    | Sí          | Estado permitido     |
+| Campo Java  | Tipo Java        | Obligatorio | Restricción                        |
+| ----------- | ---------------- | ----------- | ---------------------------------- |
+| id          | String           | Sí          | Identificador generado por MongoDB |
+| grupoId     | String           | Sí          | Referencia a grupos                |
+| alumnoId    | String           | Sí          | Referencia a alumnos               |
+| fecha       | LocalDate        | Sí          | No puede estar en el futuro        |
+| estado      | EstadoAsistencia | Sí          | Estado permitido                   |
+| observacion | String           | No          | Opcional                           |
 
-Estados permitidos:
+#### Estados permitidos
 
 - PRESENTE
 - FALTA
 - RETARDO
+- JUSTIFICADA
 
-Ejemplo:
+#### Ejemplo
 
 ```json
 {
-  "_id": { "$oid": "670000000000000000000601" },
-  "alumnoId": { "$oid": "670000000000000000000101" },
-  "grupoId": { "$oid": "670000000000000000000401" },
-  "fecha": { "$date": "2026-09-07T00:00:00Z" },
-  "estado": "PRESENTE"
+  "_id": { "$oid": "070000000000000000000001" },
+  "grupoId": "050000000000000000000001",
+  "alumnoId": "020000000000000000000001",
+  "fecha": {
+    "$date": "2026-09-07T00:00:00Z"
+  },
+  "estado": "PRESENTE",
+  "observacion": null
 }
 ```
 
-Reglas de negocio:
+#### Reglas de negocio
 
+- El grupo debe existir.
+- El alumno debe existir.
 - El alumno debe estar inscrito en el grupo.
+- La fecha no puede estar en el futuro.
+- No permitir registros duplicados para el mismo grupo, alumno y fecha.
 - Solo el profesor asignado al grupo puede registrar asistencias.
-- No permitir registros duplicados para el mismo alumno, grupo y fecha.
-- Normalizar las fechas a un mismo criterio antes de guardar.
+- El estado debe corresponder a uno de los valores permitidos.
 
 ### 3.8. calificaciones
 
@@ -302,82 +414,113 @@ Responsable: Marcos.
 
 Almacena las evaluaciones académicas de los estudiantes.
 
-| Campo        | Tipo BSON | Obligatorio | Restricción          |
-| ------------ | --------- | ----------- | -------------------- |
-| \_id         | ObjectId  | Sí          | Identificador único  |
-| alumnoId     | ObjectId  | Sí          | Referencia a alumnos |
-| grupoId      | ObjectId  | Sí          | Referencia a grupos  |
-| parcial      | Int32     | Sí          | Mayor a 0            |
-| calificacion | Double    | Sí          | Entre 0 y 10         |
+| Campo Java    | Tipo Java     | Obligatorio | Restricción                        |
+| ------------- | ------------- | ----------- | ---------------------------------- |
+| id            | String        | Sí          | Identificador generado por MongoDB |
+| alumnoId      | String        | Sí          | Referencia a alumnos               |
+| grupoId       | String        | Sí          | Referencia a grupos                |
+| parcial       | Integer       | Sí          | Entre 1 y 3                        |
+| calificacion  | Double        | Sí          | Entre 0 y 10                       |
+| comentario    | String        | No          | Opcional                           |
+| fechaRegistro | LocalDateTime | Sí          | Fecha de creación o actualización  |
 
-Ejemplo:
+#### Ejemplo
 
 ```json
 {
-  "_id": { "$oid": "670000000000000000000701" },
-  "alumnoId": { "$oid": "670000000000000000000101" },
-  "grupoId": { "$oid": "670000000000000000000401" },
+  "_id": { "$oid": "080000000000000000000001" },
+  "alumnoId": "020000000000000000000001",
+  "grupoId": "050000000000000000000001",
   "parcial": 1,
-  "calificacion": 8.5
+  "calificacion": 8.5,
+  "comentario": "Buen desempeno academico",
+  "fechaRegistro": {
+    "$date": "2026-09-30T16:00:00Z"
+  }
 }
 ```
 
-Reglas de negocio:
+#### Reglas de negocio
 
-- La calificación debe estar entre 0 y 10.
+- El alumno debe existir.
+- El grupo debe existir.
 - El alumno debe estar inscrito en el grupo.
-- Solo el profesor asignado al grupo puede registrar calificaciones.
+- El parcial debe estar entre 1 y 3.
+- La calificación debe estar entre 0 y 10.
 - No permitir calificaciones duplicadas por alumno, grupo y parcial.
+- Solo el profesor asignado al grupo puede registrar calificaciones.
 - El alumno únicamente puede consultar sus propias calificaciones.
+- Un promedio menor a 6 se considera reprobatorio.
+- La fecha de registro se asigna al crear o editar la calificación.
 
 ## 4. Relaciones entre colecciones
 
-| Colección origen | Campo     | Colección destino | Cardinalidad |
-| ---------------- | --------- | ----------------- | ------------ |
-| alumnos          | usuarioId | usuarios          | 1:1          |
-| docentes         | usuarioId | usuarios          | 1:1          |
-| grupos           | materiaId | materias          | N:1          |
-| grupos           | docenteId | docentes          | N:1          |
-| inscripciones    | alumnoId  | alumnos           | N:1          |
-| inscripciones    | grupoId   | grupos            | N:1          |
-| asistencias      | alumnoId  | alumnos           | N:1          |
-| asistencias      | grupoId   | grupos            | N:1          |
-| calificaciones   | alumnoId  | alumnos           | N:1          |
-| calificaciones   | grupoId   | grupos            | N:1          |
+| Colección origen | Campo     | Colección destino | Tipo   |
+| ---------------- | --------- | ----------------- | ------ |
+| usuarios         | alumnoId  | alumnos           | String |
+| usuarios         | docenteId | docentes          | String |
+| grupos           | materiaId | materias          | String |
+| grupos           | docenteId | docentes          | String |
+| inscripciones    | alumnoId  | alumnos           | String |
+| inscripciones    | grupoId   | grupos            | String |
+| asistencias      | alumnoId  | alumnos           | String |
+| asistencias      | grupoId   | grupos            | String |
+| calificaciones   | alumnoId  | alumnos           | String |
+| calificaciones   | grupoId   | grupos            | String |
 
-Los alumnos y grupos mantienen una relación muchos a muchos mediante la colección inscripciones.
+Los alumnos y los grupos mantienen una relación muchos a muchos mediante la colección inscripciones.
+
+Las relaciones se almacenan como cadenas de texto que contienen el identificador del documento relacionado.
+
+MongoDB no valida automáticamente estas referencias. Los servicios de Spring Boot deben comprobar que los documentos relacionados existan antes de realizar una operación.
 
 ## 5. Diagrama de relaciones
 
 ```mermaid
-erDiagram
-    USUARIOS ||--o| ALUMNOS : identifica
-    USUARIOS ||--o| DOCENTES : identifica
-    MATERIAS ||--o{ GRUPOS : pertenece
-    DOCENTES ||--o{ GRUPOS : imparte
-    ALUMNOS ||--o{ INSCRIPCIONES : realiza
-    GRUPOS ||--o{ INSCRIPCIONES : contiene
-    ALUMNOS ||--o{ ASISTENCIAS : registra
-    GRUPOS ||--o{ ASISTENCIAS : contiene
-    ALUMNOS ||--o{ CALIFICACIONES : obtiene
-    GRUPOS ||--o{ CALIFICACIONES : contiene
+flowchart TD
+    U[usuarios] -->|alumnoId| A[alumnos]
+    U -->|docenteId| D[docentes]
+
+    G[grupos] -->|materiaId| M[materias]
+    G -->|docenteId| D
+
+    I[inscripciones] -->|alumnoId| A
+    I -->|grupoId| G
+
+    AS[asistencias] -->|alumnoId| A
+    AS -->|grupoId| G
+
+    C[calificaciones] -->|alumnoId| A
+    C -->|grupoId| G
+
+    G --> H[horarios embebidos]
 ```
 
 ## 6. Índices únicos
 
-Los siguientes índices deberán configurarse en MongoDB para evitar registros duplicados.
+Los campos únicos deberán configurarse mediante índices en MongoDB y las anotaciones correspondientes en los modelos de Spring Boot.
 
-| Colección      | Campos del índice          |
+### Índices simples
+
+| Colección | Campo          |
+| --------- | -------------- |
+| usuarios  | email          |
+| alumnos   | matricula      |
+| alumnos   | email          |
+| materias  | clave          |
+| docentes  | numeroEmpleado |
+| docentes  | email          |
+| grupos    | clave          |
+
+### Índices compuestos
+
+| Colección      | Campos                     |
 | -------------- | -------------------------- |
-| usuarios       | email                      |
-| alumnos        | matricula                  |
-| alumnos        | usuarioId                  |
-| materias       | clave                      |
-| docentes       | numeroEmpleado             |
-| docentes       | usuarioId                  |
 | inscripciones  | alumnoId, grupoId          |
-| asistencias    | alumnoId, grupoId, fecha   |
+| asistencias    | grupoId, alumnoId, fecha   |
 | calificaciones | alumnoId, grupoId, parcial |
+
+Los índices compuestos permiten evitar duplicados en las relaciones y registros académicos.
 
 ## 7. Registros de prueba
 
@@ -401,47 +544,58 @@ Los 41 usuarios corresponden a:
 - 20 alumnos.
 - 20 profesores.
 
+Los datos serán ficticios y se utilizarán exclusivamente para el desarrollo y las pruebas del sistema.
+
 ## 8. Orden de inserción
 
-Para garantizar que las referencias correspondan a documentos existentes, los datos de prueba se insertarán en el siguiente orden:
+Los documentos se insertarán respetando sus dependencias:
 
-1. usuarios
-2. alumnos
+1. alumnos
+2. docentes
 3. materias
-4. docentes
+4. usuarios
 5. grupos
 6. inscripciones
 7. asistencias
 8. calificaciones
 
+Este orden permite que los documentos relacionados existan antes de insertar las referencias correspondientes.
+
 ## 9. Integridad de los datos
 
-MongoDB no implementa claves foráneas relacionales de manera automática.
-
-La integridad de las referencias deberá garantizarse mediante:
+La integridad de los datos deberá garantizarse mediante:
 
 - Validaciones en los servicios de Spring Boot.
-- Índices únicos en MongoDB.
-- Verificación de documentos relacionados.
-- Validaciones de las reglas de negocio.
+- Índices únicos simples y compuestos.
+- Validación de referencias entre colecciones.
+- Validación de campos obligatorios.
+- Validación de rangos numéricos.
+- Validación de los valores de los enums.
 - Control de acceso mediante Spring Security.
+- Bajas lógicas.
+- Validación de cupos y conflictos de horarios.
 
 ## 10. Script de datos de prueba
 
-El script encargado de generar y cargar los registros se encontrará en:
+El script encargado de generar y cargar los documentos se encuentra en:
 
 database/seed/seed.js
 
 El script deberá:
 
-- Insertar un mínimo de 20 registros por colección.
-- Generar referencias válidas.
+- Generar al menos 20 documentos por colección.
+- Respetar los nombres y tipos establecidos en este documento.
+- Generar referencias válidas de tipo String.
 - Almacenar contraseñas mediante BCrypt.
-- Evitar matrículas y claves duplicadas.
-- Respetar los cupos de los grupos.
+- Evitar matrículas, correos y claves duplicadas.
+- Respetar los cupos máximos de los grupos.
+- Evitar conflictos de horarios.
 - Generar asistencias y calificaciones de alumnos inscritos.
-- Evitar eliminar información existente.
+- Respetar los valores de los enums.
+- Evitar eliminar o sobrescribir información existente sin autorización.
 - Mantener las credenciales fuera del código fuente.
+
+Las credenciales deberán configurarse mediante variables de entorno y nunca deberán subirse al repositorio.
 
 ## 11. Responsable
 

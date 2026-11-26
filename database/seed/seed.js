@@ -1,4 +1,5 @@
-// Resolver registro de DNS
+
+// Resolver registros DNS
 const dns = require("node:dns/promises");
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
@@ -15,6 +16,7 @@ const password = process.env.SEED_PASSWORD;
 
 const DB_NAME = "SistemaEscolarDB";
 
+// Datos ficticios
 const nombres = [
     "Juan", "Maria", "Carlos", "Ana", "Luis",
     "Sofia", "Diego", "Valeria", "Miguel", "Laura",
@@ -22,12 +24,22 @@ const nombres = [
     "Andrea", "Ricardo", "Camila", "Eduardo", "Paola"
 ];
 
-const apellidos = [
-    "Garcia Lopez",
-    "Martinez Rodriguez",
-    "Hernandez Perez",
-    "Gonzalez Ramirez",
-    "Sanchez Torres"
+const apellidosPaternos = [
+    "Garcia", "Martinez", "Hernandez",
+    "Gonzalez", "Sanchez"
+];
+
+const apellidosMaternos = [
+    "Lopez", "Rodriguez", "Perez",
+    "Ramirez", "Torres"
+];
+
+const carreras = [
+    "Tecnologias de la Informacion",
+    "Mecatronica",
+    "Administracion",
+    "Logistica",
+    "Desarrollo de Software"
 ];
 
 const nombresMaterias = [
@@ -58,9 +70,11 @@ const dias = [
     "MARTES",
     "MIERCOLES",
     "JUEVES",
-    "VIERNES"
+    "VIERNES",
+    "SABADO"
 ];
 
+// Colecciones
 const usuarios = [];
 const alumnos = [];
 const materias = [];
@@ -70,12 +84,35 @@ const inscripciones = [];
 const asistencias = [];
 const calificaciones = [];
 
-// Identificadores reproducibles para evitar duplicados
+// Identificadores reproducibles
 function generarId(coleccion, numero) {
     return new ObjectId(
         coleccion.toString(16).padStart(2, "0") +
         numero.toString(16).padStart(22, "0")
     );
+}
+
+// Convertir las referencias a String
+function referencia(id) {
+    return id.toHexString();
+}
+
+// Eliminar índices del modelo anterior
+async function eliminarIndiceObsoleto(db, coleccion, nombre) {
+    const existe = await db.listCollections({
+        name: coleccion
+    }).hasNext();
+
+    if (!existe) return;
+
+    const indices = await db.collection(coleccion).indexes();
+
+    if (indices.some(indice => indice.name === nombre)) {
+
+        await db.collection(coleccion).dropIndex(nombre);
+
+        console.log(`Indice eliminado: ${coleccion}.${nombre}`);
+    }
 }
 
 async function main() {
@@ -87,6 +124,7 @@ async function main() {
     }
 
     const client = new MongoClient(uri);
+    const migrar = process.argv.includes("--migrate");
 
     try {
 
@@ -98,158 +136,304 @@ async function main() {
 
         const hash = await bcrypt.hash(password, 10);
 
-        // 1. USUARIO ADMINISTRADOR
-
-        usuarios.push({
-            _id: generarId(1, 1),
-            email: "admin@example.com",
-            password: hash,
-            rol: "ADMINISTRADOR"
-        });
-
-        // 2. USUARIOS Y ALUMNOS
+        // ==============================
+        // 1. ALUMNOS
+        // ==============================
 
         for (let i = 0; i < 20; i++) {
 
-            const usuarioId = generarId(1, i + 2);
-            const email = `alumno${i + 1}@example.com`;
-
-            usuarios.push({
-                _id: usuarioId,
-                email,
-                password: hash,
-                rol: "ALUMNO"
-            });
-
             alumnos.push({
                 _id: generarId(2, i + 1),
-                usuarioId,
-                matricula: `2026${String(i + 1).padStart(4, "0")}`,
+
+                matricula: `A2026${String(i + 1).padStart(3, "0")}`,
+
                 nombre: nombres[i],
-                apellidos: apellidos[i % 5],
-                email,
-                semestre: Math.floor(i / 4) + 1
+
+                apellidoPaterno: apellidosPaternos[i % 5],
+
+                apellidoMaterno: apellidosMaternos[i % 5],
+
+                email: `alumno${i + 1}@example.com`,
+
+                telefono: `477000${String(i + 1).padStart(4, "0")}`,
+
+                fechaNacimiento: new Date(
+                    Date.UTC(2004 + (i % 4), i % 12, i + 1)
+                ),
+
+                carrera: carreras[i % carreras.length],
+
+                semestre: Math.floor(i / 4) + 1,
+
+                activo: true
             });
         }
 
+        // ==============================
+        // 2. DOCENTES
+        // ==============================
+
+        for (let i = 0; i < 20; i++) {
+
+            docentes.push({
+                _id: generarId(4, i + 1),
+
+                numeroEmpleado: `D${String(i + 1).padStart(4, "0")}`,
+
+                nombre: nombres[i],
+
+                apellidoPaterno: apellidosPaternos[i % 5],
+
+                apellidoMaterno: apellidosMaternos[i % 5],
+
+                email: `docente${i + 1}@example.com`,
+
+                telefono: `477100${String(i + 1).padStart(4, "0")}`,
+
+                especialidad: nombresMaterias[i],
+
+                activo: true
+            });
+        }
+
+        // ==============================
         // 3. MATERIAS
+        // ==============================
 
         for (let i = 0; i < 20; i++) {
 
             materias.push({
                 _id: generarId(3, i + 1),
-                clave: `MAT${String(i + 1).padStart(3, "0")}`,
+
+                clave: `MAT${101 + i}`,
+
                 nombre: nombresMaterias[i],
+
+                descripcion: `Asignatura de ${nombresMaterias[i]}`,
+
                 creditos: 6 + (i % 4),
-                semestre: Math.floor(i / 4) + 1
+
+                semestre: Math.floor(i / 4) + 1,
+
+                horasSemana: 4,
+
+                activo: true
             });
         }
 
-        // 4. USUARIOS Y DOCENTES
+        // ==============================
+        // 4. USUARIOS
+        // ==============================
 
-        for (let i = 0; i < 20; i++) {
+        // Administrador
+        usuarios.push({
+            _id: generarId(1, 1),
 
-            const usuarioId = generarId(1, i + 22);
-            const email = `docente${i + 1}@example.com`;
+            nombre: "Administrador del sistema",
+
+            email: "admin@example.com",
+
+            password: hash,
+
+            rol: "ADMIN",
+
+            alumnoId: null,
+
+            docenteId: null,
+
+            activo: true,
+
+            fechaRegistro: new Date()
+        });
+
+        // Usuarios alumnos
+        for (let i = 0; i < alumnos.length; i++) {
+
+            const alumno = alumnos[i];
 
             usuarios.push({
-                _id: usuarioId,
-                email,
-                password: hash,
-                rol: "PROFESOR"
-            });
+                _id: generarId(1, i + 2),
 
-            docentes.push({
-                _id: generarId(4, i + 1),
-                usuarioId,
-                numeroEmpleado: `DOC${String(i + 1).padStart(3, "0")}`,
-                nombre: `${nombres[i]} ${apellidos[i % 5]}`,
-                email,
-                especialidad: nombresMaterias[i]
+                nombre: `${alumno.nombre} ${alumno.apellidoPaterno} ${alumno.apellidoMaterno}`,
+
+                email: alumno.email,
+
+                password: hash,
+
+                rol: "ALUMNO",
+
+                alumnoId: referencia(alumno._id),
+
+                docenteId: null,
+
+                activo: true,
+
+                fechaRegistro: new Date()
             });
         }
 
+        // Usuarios profesores
+        for (let i = 0; i < docentes.length; i++) {
+
+            const docente = docentes[i];
+
+            usuarios.push({
+                _id: generarId(1, i + 22),
+
+                nombre: `${docente.nombre} ${docente.apellidoPaterno} ${docente.apellidoMaterno}`,
+
+                email: docente.email,
+
+                password: hash,
+
+                rol: "PROFESOR",
+
+                alumnoId: null,
+
+                docenteId: referencia(docente._id),
+
+                activo: true,
+
+                fechaRegistro: new Date()
+            });
+        }
+
+        // ==============================
         // 5. GRUPOS
+        // ==============================
 
         for (let i = 0; i < 20; i++) {
+
+            const horaInicio = i % 2 === 0
+                ? "08:00"
+                : "10:00";
+
+            const horaFin = i % 2 === 0
+                ? "10:00"
+                : "12:00";
 
             grupos.push({
                 _id: generarId(5, i + 1),
-                materiaId: materias[i]._id,
-                docenteId: docentes[i]._id,
+
+                clave: `${materias[i].clave}-A`,
+
+                materiaId: referencia(materias[i]._id),
+
+                docenteId: referencia(docentes[i]._id),
+
                 periodo: "2026-3",
-                cupo: 30,
-                horario: {
-                    dia: dias[i % 5],
-                    horaInicio: "08:00",
-                    horaFin: "10:00",
-                    aula: `A${101 + i}`
-                }
+
+                cupoMaximo: 30,
+
+                horarios: [
+                    {
+                        dia: dias[i % dias.length],
+                        horaInicio,
+                        horaFin,
+                        aula: `B-${201 + i}`
+                    },
+                    {
+                        dia: dias[(i + 2) % dias.length],
+                        horaInicio,
+                        horaFin,
+                        aula: `B-${201 + i}`
+                    }
+                ],
+
+                activo: true
             });
         }
 
+        // ==============================
         // 6. INSCRIPCIONES
+        // ==============================
 
         let numeroInscripcion = 1;
 
         for (let i = 0; i < alumnos.length; i++) {
 
-            // Dos grupos del semestre del alumno
+            // Dos grupos del mismo semestre
             const indices = [i, i ^ 1];
 
             for (const indice of indices) {
 
                 inscripciones.push({
                     _id: generarId(6, numeroInscripcion++),
-                    alumnoId: alumnos[i]._id,
-                    grupoId: grupos[indice]._id,
-                    fecha: new Date("2026-09-01T00:00:00Z"),
-                    estado: "ACTIVA"
+
+                    alumnoId: referencia(alumnos[i]._id),
+
+                    grupoId: referencia(grupos[indice]._id),
+
+                    fechaInscripcion: new Date(
+                        "2026-09-01T00:00:00Z"
+                    ),
+
+                    estado: "INSCRITO"
                 });
             }
         }
 
+        // ==============================
         // 7. ASISTENCIAS
+        // ==============================
 
-        let numeroAsistencia = 1;
-
-        const estados = [
+        const estadosAsistencia = [
             "PRESENTE",
             "PRESENTE",
             "PRESENTE",
             "FALTA",
-            "RETARDO"
+            "RETARDO",
+            "JUSTIFICADA"
         ];
+
+        const observaciones = {
+            PRESENTE: null,
+            FALTA: "No asistio a clase",
+            RETARDO: "Llegada tarde",
+            JUSTIFICADA: "Inasistencia justificada"
+        };
+
+        let numeroAsistencia = 1;
 
         for (const inscripcion of inscripciones) {
 
-            const grupo = grupos.find(g =>
-                g._id.equals(inscripcion.grupoId)
+            const grupo = grupos.find(
+                g => referencia(g._id) === inscripcion.grupoId
             );
 
             const indiceDia = dias.indexOf(
-                grupo.horario.dia
+                grupo.horarios[0].dia
             );
 
             for (let i = 0; i < 2; i++) {
 
-                const fecha = new Date(Date.UTC(
-                    2026, 8, 7 + indiceDia + i * 7
-                ));
+                const fecha = new Date(
+                    Date.UTC(2026, 8, 7 + indiceDia + i * 7)
+                );
+
+                const estado = estadosAsistencia[
+                    numeroAsistencia % estadosAsistencia.length
+                ];
 
                 asistencias.push({
-                    _id: generarId(7, numeroAsistencia),
-                    alumnoId: inscripcion.alumnoId,
-                    grupoId: inscripcion.grupoId,
-                    fecha,
-                    estado: estados[numeroAsistencia % 5]
-                });
+                    _id: generarId(7, numeroAsistencia++),
 
-                numeroAsistencia++;
+                    grupoId: inscripcion.grupoId,
+
+                    alumnoId: inscripcion.alumnoId,
+
+                    fecha,
+
+                    estado,
+
+                    observacion: observaciones[estado]
+                });
             }
         }
 
+        // ==============================
         // 8. CALIFICACIONES
+        // ==============================
 
         let numeroCalificacion = 1;
 
@@ -263,33 +447,153 @@ async function main() {
 
                 calificaciones.push({
                     _id: generarId(8, numeroCalificacion++),
+
                     alumnoId: inscripcion.alumnoId,
+
                     grupoId: inscripcion.grupoId,
+
                     parcial,
-                    calificacion: new Double(nota)
+
+                    calificacion: new Double(nota),
+
+                    comentario: nota < 6
+                        ? "Requiere mejorar su desempeno"
+                        : "Buen desempeno academico",
+
+                    fechaRegistro: new Date(
+                        Date.UTC(2026, 8 + parcial - 1, 25, 12)
+                    )
                 });
             }
         }
 
+        // ==============================
+        // ORDEN DE INSERCION
+        // ==============================
+
+        const colecciones = {
+            alumnos,
+            docentes,
+            materias,
+            usuarios,
+            grupos,
+            inscripciones,
+            asistencias,
+            calificaciones
+        };
+
+        // Comprobar si existen registros anteriores
+        for (const [nombre, documentos] of Object.entries(colecciones)) {
+
+            const ids = documentos.map(doc => doc._id);
+
+            const existentes = await db.collection(nombre)
+                .countDocuments({
+                    _id: { $in: ids }
+                });
+
+            if (existentes > 0 && !migrar) {
+
+                throw new Error(
+                    `Existen datos anteriores en ${nombre}. ` +
+                    "Respalda los datos y utiliza --migrate."
+                );
+            }
+        }
+
+        // ==============================
+        // ELIMINAR INDICES OBSOLETOS
+        // ==============================
+
+        if (migrar) {
+
+            await eliminarIndiceObsoleto(
+                db,
+                "alumnos",
+                "usuarioId_1"
+            );
+
+            await eliminarIndiceObsoleto(
+                db,
+                "docentes",
+                "usuarioId_1"
+            );
+
+            await eliminarIndiceObsoleto(
+                db,
+                "asistencias",
+                "alumnoId_1_grupoId_1_fecha_1"
+            );
+        }
+
+        // ==============================
+        // INSERTAR O ACTUALIZAR DOCUMENTOS
+        // ==============================
+
+        for (const [nombre, documentos] of Object.entries(colecciones)) {
+
+            const coleccion = db.collection(nombre);
+
+            await coleccion.bulkWrite(
+                documentos.map(documento => ({
+                    replaceOne: {
+                        filter: {
+                            _id: documento._id
+                        },
+                        replacement: documento,
+                        upsert: true
+                    }
+                }))
+            );
+
+            console.log(`Coleccion procesada: ${nombre}`);
+        }
+
+        // ==============================
         // INDICES UNICOS
+        // ==============================
 
         await db.collection("usuarios")
-            .createIndex({ email: 1 }, { unique: true });
+            .createIndex(
+                { email: 1 },
+                { unique: true }
+            );
 
         await db.collection("alumnos")
-            .createIndex({ matricula: 1 }, { unique: true });
+            .createIndex(
+                { matricula: 1 },
+                { unique: true }
+            );
 
         await db.collection("alumnos")
-            .createIndex({ usuarioId: 1 }, { unique: true });
+            .createIndex(
+                { email: 1 },
+                { unique: true }
+            );
+
+        await db.collection("docentes")
+            .createIndex(
+                { numeroEmpleado: 1 },
+                { unique: true }
+            );
+
+        await db.collection("docentes")
+            .createIndex(
+                { email: 1 },
+                { unique: true }
+            );
 
         await db.collection("materias")
-            .createIndex({ clave: 1 }, { unique: true });
+            .createIndex(
+                { clave: 1 },
+                { unique: true }
+            );
 
-        await db.collection("docentes")
-            .createIndex({ numeroEmpleado: 1 }, { unique: true });
-
-        await db.collection("docentes")
-            .createIndex({ usuarioId: 1 }, { unique: true });
+        await db.collection("grupos")
+            .createIndex(
+                { clave: 1 },
+                { unique: true }
+            );
 
         await db.collection("inscripciones")
             .createIndex(
@@ -299,7 +603,7 @@ async function main() {
 
         await db.collection("asistencias")
             .createIndex(
-                { alumnoId: 1, grupoId: 1, fecha: 1 },
+                { grupoId: 1, alumnoId: 1, fecha: 1 },
                 { unique: true }
             );
 
@@ -309,36 +613,18 @@ async function main() {
                 { unique: true }
             );
 
-        // INSERTAR LOS DOCUMENTOS
-
-        const colecciones = {
-            usuarios,
-            alumnos,
-            materias,
-            docentes,
-            grupos,
-            inscripciones,
-            asistencias,
-            calificaciones
-        };
+        // ==============================
+        // RESULTADOS
+        // ==============================
 
         let total = 0;
 
-        for (const [nombre, documentos] of Object.entries(colecciones)) {
+        console.log("-----------------------------");
 
-            const coleccion = db.collection(nombre);
+        for (const nombre of Object.keys(colecciones)) {
 
-            await coleccion.bulkWrite(
-                documentos.map(documento => ({
-                    updateOne: {
-                        filter: { _id: documento._id },
-                        update: { $setOnInsert: documento },
-                        upsert: true
-                    }
-                }))
-            );
-
-            const cantidad = await coleccion.countDocuments();
+            const cantidad = await db.collection(nombre)
+                .countDocuments();
 
             console.log(`${nombre}: ${cantidad} registros`);
 
@@ -350,11 +636,14 @@ async function main() {
         console.log("Datos de prueba cargados correctamente");
 
     } finally {
+
         await client.close();
     }
 }
 
 main().catch(error => {
+
     console.error("Error:", error.message);
+
     process.exitCode = 1;
 });
