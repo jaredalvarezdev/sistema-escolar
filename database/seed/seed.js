@@ -158,7 +158,7 @@ async function main() {
                 telefono: `477000${String(i + 1).padStart(4, "0")}`,
 
                 fechaNacimiento: new Date(
-                    Date.UTC(2004 + (i % 4), i % 12, i + 1)
+                    Date.UTC(2004 + (i % 4), i % 12, i + 1, 12)
                 ),
 
                 carrera: carreras[i % carreras.length],
@@ -365,7 +365,7 @@ async function main() {
                     grupoId: referencia(grupos[indice]._id),
 
                     fechaInscripcion: new Date(
-                        "2026-09-01T00:00:00Z"
+                        "2026-09-01T12:00:00Z"
                     ),
 
                     estado: "INSCRITO"
@@ -408,7 +408,7 @@ async function main() {
             for (let i = 0; i < 2; i++) {
 
                 const fecha = new Date(
-                    Date.UTC(2026, 8, 7 + indiceDia + i * 7)
+                    Date.UTC(2026, 8, 7 + indiceDia + i * 7, 12)
                 );
 
                 const estado = estadosAsistencia[

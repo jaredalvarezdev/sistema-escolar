@@ -21,7 +21,9 @@
 - En MongoDB, el identificador se almacena en el campo `_id`.
 - Las referencias entre colecciones se almacenan como String y terminan en Id.
 - Los valores de los enums se escriben en mayúsculas.
-- Las fechas utilizan LocalDate, LocalDateTime o LocalTime, según corresponda.
+- Las fechas utilizan LocalDate o LocalDateTime, según corresponda.
+- Las fechas de tipo LocalDate se almacenan como BSON Date a las 12:00 UTC para evitar cambios de día en la zona horaria de México.
+- Los horarios de inicio y fin se almacenan como String con formato HH:mm.
 - Los campos únicos llevan la anotación `@Indexed(unique = true)`.
 - Los modelos utilizan `@Document(collection = "...")` con el nombre exacto de la colección.
 - Las contraseñas se almacenan mediante hash BCrypt.
@@ -38,7 +40,6 @@
 | Double                           | Double                                        |
 | Boolean                          | Boolean                                       |
 | Date                             | LocalDate o LocalDateTime mediante conversión |
-| Representación según convertidor | LocalTime                                     |
 | String                           | Enum                                          |
 | Document                         | Clase Java                                    |
 | Array                            | List                                          |
@@ -103,7 +104,7 @@ Almacena las cuentas de acceso al sistema y sus respectivos roles.
 
 ### 3.2. alumnos
 
-Responsable: Yayo.
+Responsable: Yael.
 
 Almacena la información personal y académica de los estudiantes.
 
@@ -133,7 +134,7 @@ Almacena la información personal y académica de los estudiantes.
   "email": "alumno1@example.com",
   "telefono": "4770000001",
   "fechaNacimiento": {
-    "$date": "2005-03-15T00:00:00Z"
+    "$date": "2005-03-15T12:00:00Z"
   },
   "carrera": "Tecnologias de la Informacion",
   "semestre": 3,
@@ -261,8 +262,8 @@ Almacena los grupos académicos, materias, docentes, periodos y horarios.
 | Campo Java | Tipo Java | Obligatorio | Restricción          |
 | ---------- | --------- | ----------- | -------------------- |
 | dia        | DiaSemana | Sí          | LUNES a SABADO       |
-| horaInicio | LocalTime | Sí          | Formato HH:mm        |
-| horaFin    | LocalTime | Sí          | Mayor que horaInicio |
+| horaInicio | String    | Sí          | Formato HH:mm        |
+| horaFin    | String    | Sí          | Formato HH:mm; mayor que horaInicio |
 | aula       | String    | Sí          | No vacío             |
 
 #### Días permitidos
@@ -345,7 +346,7 @@ Relaciona a los alumnos con los grupos académicos.
   "alumnoId": "020000000000000000000001",
   "grupoId": "050000000000000000000001",
   "fechaInscripcion": {
-    "$date": "2026-09-01T00:00:00Z"
+    "$date": "2026-09-01T12:00:00Z"
   },
   "estado": "INSCRITO"
 }
@@ -391,7 +392,7 @@ Almacena los registros de asistencia de los alumnos.
   "grupoId": "050000000000000000000001",
   "alumnoId": "020000000000000000000001",
   "fecha": {
-    "$date": "2026-09-07T00:00:00Z"
+    "$date": "2026-09-07T12:00:00Z"
   },
   "estado": "PRESENTE",
   "observacion": null
