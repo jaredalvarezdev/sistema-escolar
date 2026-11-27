@@ -1,7 +1,9 @@
 package com.sistemaescolar.dto;
 
 import jakarta.validation.constraints.*;
+import lombok.Data;
 
+@Data
 public class DocenteRequest {
     @NotBlank(message = "El número de empleado es obligatorio")
     @Size(max = 30, message = "El número de empleado no puede exceder 30 caracteres")
@@ -23,7 +25,7 @@ public class DocenteRequest {
     @Size(max = 120, message = "El correo no puede exceder 120 caracteres")
     private String email;
 
-    @Pattern(regexp = "^[0-9+\\-\\s]{7,15}$", message = "El teléfono no tiene un formato válido")
+    @Pattern(regexp = "^\\d{10}$", message = "El teléfono debe contener exactamente 10 dígitos")
     private String telefono;
 
     @NotBlank(message = "La especialidad es obligatoria")

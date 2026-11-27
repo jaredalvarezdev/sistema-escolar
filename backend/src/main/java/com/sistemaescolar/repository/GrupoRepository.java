@@ -17,7 +17,7 @@ public interface GrupoRepository extends MongoRepository<Grupo, String> {
     List<Grupo> findByActivoTrue();
 
     // Busca grupos activos de un docente en un periodo y día específicos
-    List<Grupo> findByDocenteIdAndPeriodoAndHorariosDiaIgnoreCaseAndActivoTrue(
+    List<Grupo> findByDocenteIdAndPeriodoAndHorariosDiaAndActivoTrue(
             String docenteId,
             String periodo,
             DiaSemana dia

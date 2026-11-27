@@ -26,9 +26,7 @@ public class Docente {
     private String apellidoPaterno;
     private String apellidoMaterno;
 
-    @Indexed(unique = true)
     private String email;
-
     private String telefono;
     private String especialidad;
 
