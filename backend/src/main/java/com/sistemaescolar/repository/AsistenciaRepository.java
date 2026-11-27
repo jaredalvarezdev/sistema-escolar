@@ -43,7 +43,7 @@ public interface AsistenciaRepository extends MongoRepository<Asistencia, String
     );
 
     // Consulta las asistencias de un grupo en un rango de fechas
-    List<Asistencia> findByGrupoIdAndFechaBetween(
+    List<Asistencia> findByGrupoIdAndFechaGreaterThanEqualAndFechaLessThanEqual(
             String grupoId,
             LocalDate fechaInicio,
             LocalDate fechaFin
