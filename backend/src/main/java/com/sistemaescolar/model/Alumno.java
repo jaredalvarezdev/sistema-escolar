@@ -10,6 +10,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
 
+/**
+ * Alumno inscrito en el sistema escolar.
+ */
 @Data
 @Builder
 @NoArgsConstructor
