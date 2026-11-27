@@ -54,6 +54,24 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "No tienes permiso para realizar esta acción", req, null);
     }
 
+    // 404: el registro no existe
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex, HttpServletRequest req) {
+        return build(HttpStatus.NOT_FOUND, ex.getMessage(), req, null);
+    }
+
+    // 409: el registro ya existe
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicate(DuplicateResourceException ex, HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), req, null);
+    }
+
+    // 400: se incumple una regla de negocio
+    @ExceptionHandler(BusinessRuleException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessRule(BusinessRuleException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req, null);
+    }
+
     // 500: cualquier otro error
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(HttpServletRequest req) {
