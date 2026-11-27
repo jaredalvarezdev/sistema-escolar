@@ -1,6 +1,7 @@
 package com.sistemaescolar.service;
 
 import com.sistemaescolar.dto.MateriaRequest;
+import com.sistemaescolar.exception.BusinessRuleException;
 import com.sistemaescolar.exception.DuplicateResourceException;
 import com.sistemaescolar.exception.ResourceNotFoundException;
 import com.sistemaescolar.model.Materia;
@@ -32,28 +33,56 @@ public class MateriaService {
 
     // 409 si la clave ya existe
     public Materia crear(MateriaRequest request) {
-        validarClave(request.clave());
+        String clave = normalizarClave(request.clave());
+        validarClave(clave);
         Materia materia = new Materia();
-        copiarDatos(materia, request);
+        copiarDatos(materia, request, clave);
         materia.setActivo(true);
         return materiaRepository.save(materia);
     }
 
-    // 409 si cambia a una clave que ya existe
+    // 400 si está dada de baja; 409 si cambia a una clave que ya existe
     public Materia actualizar(String id, MateriaRequest request) {
         Materia materia = obtener(id);
-        if (!materia.getClave().equals(request.clave())) {
-            validarClave(request.clave());
+        if (!estaActiva(materia)) {
+            throw new BusinessRuleException("No se puede editar una materia dada de baja");
         }
-        copiarDatos(materia, request);
+        String clave = normalizarClave(request.clave());
+        if (!materia.getClave().equals(clave)) {
+            validarClave(clave);
+        }
+        copiarDatos(materia, request, clave);
         return materiaRepository.save(materia);
     }
 
-    // Baja lógica
+    // Baja lógica; 400 si ya estaba dada de baja
     public void darDeBaja(String id) {
         Materia materia = obtener(id);
+        if (!estaActiva(materia)) {
+            throw new BusinessRuleException("La materia ya está dada de baja");
+        }
         materia.setActivo(false);
         materiaRepository.save(materia);
+    }
+
+    // Reactiva una materia; 400 si ya estaba activa
+    public Materia activar(String id) {
+        Materia materia = obtener(id);
+        if (estaActiva(materia)) {
+            throw new BusinessRuleException("La materia ya está activa");
+        }
+        materia.setActivo(true);
+        return materiaRepository.save(materia);
+    }
+
+    // true solo si activo es true; si es false o null, la toma como inactiva
+    private boolean estaActiva(Materia materia) {
+        return Boolean.TRUE.equals(materia.getActivo());
+    }
+
+    // Quita espacios y pasa a mayúsculas: " mat101 " → "MAT101"
+    private String normalizarClave(String clave) {
+        return clave.trim().toUpperCase();
     }
 
     private void validarClave(String clave) {
@@ -62,9 +91,9 @@ public class MateriaService {
         }
     }
 
-    private void copiarDatos(Materia materia, MateriaRequest request) {
-        materia.setClave(request.clave());
-        materia.setNombre(request.nombre());
+    private void copiarDatos(Materia materia, MateriaRequest request, String clave) {
+        materia.setClave(clave);
+        materia.setNombre(request.nombre().trim());
         materia.setDescripcion(request.descripcion());
         materia.setCreditos(request.creditos());
         materia.setSemestre(request.semestre());

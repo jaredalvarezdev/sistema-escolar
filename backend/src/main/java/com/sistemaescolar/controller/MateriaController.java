@@ -51,4 +51,10 @@ public class MateriaController {
         materiaService.darDeBaja(id);
         return ResponseEntity.noContent().build();
     }
+
+    // PATCH /api/materias/{id}/activar → reactiva una materia dada de baja
+    @PatchMapping("/{id}/activar")
+    public Materia activar(@PathVariable String id) {
+        return materiaService.activar(id);
+    }
 }
