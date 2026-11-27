@@ -10,16 +10,16 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.List;
 
+/**
+ * Grupo académico asignado a una materia y docente en un periodo.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "grupos")
-
-/*
- * Grupo académico asignado a una materia y docente en un periodo.
- */
 public class Grupo {
+
     @Id
     private String id;
 
@@ -30,8 +30,7 @@ public class Grupo {
     private String docenteId;
     private String periodo;
     private Integer cupoMaximo;
-
-    private List<Horario> horarios;
+    private List<Horario> horarios; // Embebidos
 
     @Builder.Default
     private Boolean activo = true;
