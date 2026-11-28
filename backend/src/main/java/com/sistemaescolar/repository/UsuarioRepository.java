@@ -11,9 +11,12 @@ import java.util.Optional;
  */
 public interface UsuarioRepository extends MongoRepository<Usuario, String> {
 
-    // Busca el usuario para el inicio de sesión
-    Optional<Usuario> findByEmail(String email);
+    // Busca el usuario para el inicio de sesión (sin importar mayúsculas)
+    Optional<Usuario> findByEmailIgnoreCase(String email);
 
-    // Valida que el correo no esté registrado
-    boolean existsByEmail(String email);
+    // Valida que el correo no esté registrado (sin importar mayúsculas)
+    boolean existsByEmailIgnoreCase(String email);
+
+    // Revisa si ese alumno ya tiene cuenta
+    boolean existsByAlumnoId(String alumnoId);
 }

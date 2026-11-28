@@ -5,6 +5,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,16 +38,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "El cuerpo de la petición no es un JSON válido", req, null);
     }
 
-    // 404: la ruta no existe
-    @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoResource(HttpServletRequest req) {
-        return build(HttpStatus.NOT_FOUND, "La ruta solicitada no existe", req, null);
+    // 401: email o contraseña incorrectos
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex, HttpServletRequest req) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req, null);
     }
 
-    // 405: método HTTP no permitido
-    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> handleMethod(HttpServletRequest req) {
-        return build(HttpStatus.METHOD_NOT_ALLOWED, "Método HTTP no permitido en esta ruta", req, null);
+    // 403: la cuenta está desactivada
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabled(DisabledException ex, HttpServletRequest req) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), req, null);
     }
 
     // 403: sin permiso para la acción
@@ -54,10 +56,22 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "No tienes permiso para realizar esta acción", req, null);
     }
 
+    // 404: la ruta no existe
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(HttpServletRequest req) {
+        return build(HttpStatus.NOT_FOUND, "La ruta solicitada no existe", req, null);
+    }
+
     // 404: el registro no existe
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex, HttpServletRequest req) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), req, null);
+    }
+
+    // 405: metodo HTTP no permitido
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethod(HttpServletRequest req) {
+        return build(HttpStatus.METHOD_NOT_ALLOWED, "Método HTTP no permitido en esta ruta", req, null);
     }
 
     // 409: el registro ya existe
