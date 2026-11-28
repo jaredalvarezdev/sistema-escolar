@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 - Servicio encargado de la lógica de negocio de los grupos académicos,
 - incluyendo el mapeo desde DTO y la validación de horarios simultáneos por docente.
  */
+/**/
 @Service // Registra esta clase como un bean de servicio administrado por Spring
 public class GrupoService {
 
