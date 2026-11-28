@@ -4,6 +4,7 @@ import com.sistemaescolar.model.Alumno;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Acceso a la colección alumnos.
@@ -18,4 +19,7 @@ public interface AlumnoRepository extends MongoRepository<Alumno, String> {
 
     // Lista solo los alumnos activos
     List<Alumno> findByActivoTrue();
+
+    // Busca al alumno por su matrícula (para activar su cuenta)
+    Optional<Alumno> findByMatricula(String matricula);
 }
